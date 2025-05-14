@@ -6,7 +6,7 @@ from langchain.agents import Tool
 from langchain_experimental.tools import PythonAstREPLTool
 
 import pandas as pd
-import matplotlib as plt
+import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
 import os
@@ -26,12 +26,15 @@ llm = ChatGroq(
 # relatorio informações
 @tool
 def informacoes_dataframe(pergunta: str, df: pd.DataFrame) -> str:
+  """Utilize esta ferramenta sempre que o usuário solicitar informações gerais sobre o dataframe,
+        incluindo número de colunas e linhas, nomes das colunas e seus tipos de dados, contagem de dados
+        nulos e duplicados para dar um panomara geral sobre o arquivo."""
 
   # coleta de informações
   shape = df.shape
-  columns = df.dtypes
-  nulos = df.isnull().sum()
-  nans_str = df.apply(lambda col: col[~col.isna()].astype(str).str.strip().str.lower().eq('nan').sum())
+  columns = df.dtypes.to_string()
+  nulos = df.isnull().sum().to_string()
+  nans_str = df.apply(lambda col: col[~col.isna()].astype(str).str.strip().str.lower().eq('nan').sum()).to_string()
   duplicados = df.duplicated().sum()
 
   # prompt de resposta
@@ -82,6 +85,11 @@ def informacoes_dataframe(pergunta: str, df: pd.DataFrame) -> str:
 # relatorio estatístico
 @tool
 def resumo_estatistico(pergunta: str, df: pd.DataFrame) -> str:
+  """
+    Utilize esta ferramenta sempre que o usuário solicitar um resumo estatístico completo e descritivo da base de dados,
+    incluindo várias estatísticas (média, desvio padrão, mínimo, máximo etc.).
+    Não utilize esta ferramenta para calcular uma única métrica como 'qual é a média de X' ou 'qual a correlação das variáveis'.
+    """
 
   # coleta de estatísticas descritivas
   estatisticas_descritivas = df.describe(include='number').transpose().to_string()
@@ -124,6 +132,11 @@ def resumo_estatistico(pergunta: str, df: pd.DataFrame) -> str:
 # gerador de gráficos
 @tool
 def gerar_grafico(pergunta: str, df: pd.DataFrame) -> str:
+  """
+  Utilize esta ferramenta sempre que o usuário solicitar um gráfico a partir de um DataFrame pandas (`df`) com base em uma instrução do usuário.
+  A instrução pode conter pedidos como: 'Crie um gráfico da média de tempo de entrega por clima','Plote a distribuição do tempo de entrega'"
+  ou "Plote a relação entre a classifição dos agentes e o tempo de entrega. Palavras-chave comuns que indicam o uso desta ferramenta incluem:
+  'crie um gráfico', 'plote', 'visualize', 'faça um gráfico de', 'mostre a distribuição', 'represente graficamente', entre outros."""
 
   # captura informações sobre os dataframe
   colunas_info = "\n".join([f"- {col} ({dtype})" for col, dtype in df.dtypes.items()])
@@ -188,3 +201,49 @@ def gerar_grafico(pergunta: str, df: pd.DataFrame) -> str:
   st.pyplot(fig)
 
   return ""
+
+# função para criar ferramentas
+def criar_ferramentas(df):
+  ferramenta_informacoes_dataframe = Tool(
+    name="Informações DataFrame",
+    func=lambda pergunta:informacoes_dataframe.run({"pergunta": pergunta, "df": df}),
+    description="""Utilize esta ferramenta sempre que o usuario solicitar infomações gerais sobre o dataframe,
+    incluindo numero de colunas e linhas, nomes das colunas e seus tipos de dados, contagem de dados
+    nulos e duplicados para dar um panorama geral sobre o arquivo.""",
+    return_direct=True
+  )
+
+  ferramenta_resumo_estatistico = Tool(
+    name="Resumo Estatístico",
+    func=lambda pergunta:resumo_estatistico.run({"pergunta": pergunta, "df": df}),
+    description="""Utilize esta ferramenta sempre que o usuario solicitar um resumo estatistico completo e descritivo da base de dados,
+    incluindo varias estatisticas (media, desvio padrão, minimo, maximo etc.) e/ou multiplas colunas numericas.
+    Não ultilize esta ferramenta para calcular uma unica metrica como 'qual é a media de X' ou 'qual a correlação das variaveis'.
+    Para isso, use a ferramenta_python.""",
+    return_direct=True
+  )
+
+  ferramenta_gerar_grafico = Tool(
+    name="Gerar Grafico",
+    func=lambda pergunta:gerar_grafico.run({"pergunta": pergunta, "df": df}),
+    description="""Utilize esta ferramenta sempre que o usuario solicitar um grafico a partir de um DataFrame pandas (`df`) com base em uma instrução do usuario.
+    A instrução pode conter pedidos como: 'Crie um grafico da media de tempo de entrega por clima', 'Plote a distriuição do tempo de entrega'
+    ou Plote a relação entre classificação dos agente e o tempo de entrega. Palavras-chave comuns que indicam o uso desta ferramenta incluem:
+    'crie um grafico', 'plote', 'vizualize', 'faça um grafico de', 'mostre a distribuição', 'represente graficamente' entre outros.""",
+    return_direct=True
+  )
+
+  ferramenta_codigos_python = Tool(
+    name="Codigos Python",
+    func=PythonAstREPLTool(locals={"df": df}),
+    description="""Utilize esta ferramenta sempre que o usuario solicitar calculos, consultas ou transformações especificas usando Python diretamente sobre o DataFrame `df`.
+    Exemplos de uso incluem: "Qual é a media da colunaX?", "Quais são os valores unicos da coluna Y?", "Qual o correlação entre A e B?".
+    Evite utilizar esta ferramenta para solicitaç~eos mais amplas ou descritivas, como infomações gerais sobre o dataframe, resumo estatistico completos ou geração de graficos - nesses casos, use as ferramentas apropriadas."""
+  )
+
+  return [
+    ferramenta_informacoes_dataframe,
+    ferramenta_resumo_estatistico,
+    ferramenta_gerar_grafico,
+    ferramenta_codigos_python
+  ]
