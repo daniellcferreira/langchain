@@ -8,8 +8,6 @@
 ![Groq](https://img.shields.io/badge/Groq-API-FF6D00?style=flat-square&logo=groq&logoColor=000000)
 
 
-
-
 ## Descrição
 
 Este projeto é um assistente inteligente para análise exploratória de dados via interface web. Desenvolvido com Streamlit e LangChain, ele permite que usuários façam o upload de arquivos CSV e obtenham insights automatizados através de perguntas em linguagem natural.
